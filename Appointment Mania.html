@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Appointment Mania</title>
+<style>
+:root{
+  --bg:#f6f5f2; --panel:#ffffff; --border:#e3e0d9; --text:#221f1a; --muted:#6b6558;
+  --accent:#a8452f; --accent-soft:#f1ded8; --good:#3d6b4c; --bad:#a8452f; --warn:#b5842a;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171512; --panel:#221f1a; --border:#38332b; --text:#f1ede4; --muted:#a39c8c;
+    --accent:#e2795c; --accent-soft:#3a2620; --good:#7fb894; --bad:#e2795c; --warn:#e0b25f;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171512; --panel:#221f1a; --border:#38332b; --text:#f1ede4; --muted:#a39c8c;
+  --accent:#e2795c; --accent-soft:#3a2620; --good:#7fb894; --bad:#e2795c; --warn:#e0b25f;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; line-height:1.5;}
+.wrap{max-width:720px; margin:0 auto; padding:20px 16px 60px;}
+h1{font-size:1.3rem; margin:4px 0 2px; letter-spacing:-0.01em;}
+.sub{color:var(--muted); font-size:0.9rem; margin:0 0 18px;}
+textarea{width:100%; min-height:160px; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-size:0.95rem; font-family:inherit; resize:vertical;}
+.row{display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; align-items:center;}
+select,button{font-family:inherit; font-size:0.9rem; padding:10px 14px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text);}
+button.primary{background:var(--accent); color:#fff; border:none; font-weight:600; cursor:pointer; flex:1;}
+button.stop{background:var(--bad); color:#fff; border:none; font-weight:600; cursor:pointer; flex:1;}
+button:disabled{opacity:0.5;}
+.hint{font-size:0.8rem; color:var(--muted); margin-top:6px;}
+#status{font-size:0.9rem; color:var(--muted); margin-top:12px; min-height:1.2em;}
+.signals{margin-top:12px; font-size:0.85rem;}
+.signals b{display:block; margin-bottom:6px; color:var(--muted); text-transform:uppercase; font-size:0.72rem; letter-spacing:0.03em;}
+.chip{display:inline-block; background:var(--accent-soft); color:var(--accent); border-radius:999px; padding:3px 10px; font-size:0.78rem; margin:2px 4px 2px 0;}
+.legend{margin-top:10px; font-size:0.8rem; color:var(--muted);}
+.legend .chip{color:var(--text);}
+.live{margin-top:20px; padding-top:16px; border-top:1px solid var(--border);}
+.tally{display:flex; flex-wrap:wrap; gap:8px 18px; margin:10px 0 4px;}
+.tally div{font-size:0.75rem; color:var(--muted);}
+.tally b{display:block; font-size:1.3rem; color:var(--text);}
+.barwrap{background:var(--border); border-radius:6px; overflow:hidden; height:10px; display:flex; margin:6px 0 14px;}
+.barseg{height:100%;}
+.seg-win{background:var(--good);}
+.seg-mid{background:var(--warn);}
+.seg-lose{background:var(--bad);}
+.simfeed{max-height:420px; overflow-y:auto; border:1px solid var(--border); border-radius:10px; background:var(--panel);}
+.simrow{display:flex; align-items:center; gap:8px; font-size:0.82rem; padding:7px 10px; border-bottom:1px dashed var(--border); opacity:0; animation:fadein 0.25s forwards;}
+.simrow:last-child{border-bottom:none;}
+@keyframes fadein{to{opacity:1;}}
+.simrow .idx{width:26px; color:var(--muted); font-variant-numeric:tabular-nums; font-size:0.76rem;}
+.simrow .appname{flex:0 0 122px; color:var(--muted); font-size:0.74rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.path{display:flex; gap:4px;}
+.step{width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; background:var(--accent-soft); flex:none;}
+.step.good{color:var(--good);}
+.step.bad{color:var(--bad);}
+.step.neutral{color:var(--warn);}
+.outcome-chip{margin-left:auto; font-size:0.68rem; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap;}
+.outcome-win{background:var(--accent-soft); color:var(--good);}
+.outcome-mid{background:var(--accent-soft); color:var(--warn);}
+.outcome-lose{background:var(--accent-soft); color:var(--bad);}
+.dualrow{padding:9px 10px; border-bottom:1px dashed var(--border); opacity:0; animation:fadein 0.25s forwards;}
+.dualrow:last-child{border-bottom:none;}
+.duelgrid{display:flex; flex-direction:column; gap:4px;}
+.roundno{font-size:0.72rem; color:var(--muted); margin-bottom:4px; font-variant-numeric:tabular-nums;}
+.duelcol{flex:1; display:flex; align-items:center; gap:6px; font-size:0.8rem; padding:5px 7px; border-radius:8px; border:1px solid transparent;}
+.duelcol.win{border-color:var(--good); background:var(--accent-soft);}
+.duelcol .aname{flex:0 0 auto; font-weight:600; font-size:0.72rem; color:var(--muted); max-width:78px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.vs{font-size:0.68rem; color:var(--muted); flex:none; padding:0 2px;}
+.reason{font-size:0.76rem; color:var(--muted); margin-top:5px; padding-left:2px;}
+.reason b{color:var(--text);}
+.idxcol{width:22px; color:var(--muted); font-size:0.72rem; font-variant-numeric:tabular-nums;}
+.approach-stats{margin-top:14px;}
+.approach-row{font-size:0.8rem; margin-top:8px;}
+.approach-row .lbl{display:flex; justify-content:space-between; margin-bottom:3px;}
+.approach-row .miniwrap{background:var(--border); border-radius:6px; overflow:hidden; height:8px;}
+.approach-row .minibar{height:100%; background:var(--accent);}
+.histbox{margin-top:20px; padding:14px 16px; border:1px solid var(--border); border-radius:12px; background:var(--panel);}
+.histbox h2{font-size:1.0rem; margin:0 0 4px;}
+.histrow{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+.histrow select{flex:1; min-width:120px;}
+#histStatus{font-size:0.82rem; color:var(--muted); margin-top:8px; min-height:1.1em;}
+.histtable{margin-top:12px; font-size:0.8rem;}
+.histtable-row{display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed var(--border);}
+.datatag{font-size:0.62rem; font-weight:700; padding:1px 6px; border-radius:999px; margin-left:4px; background:var(--accent-soft); color:var(--good);}
+.esttag{font-size:0.62rem; font-weight:700; padding:1px 6px; border-radius:999px; margin-left:4px; background:var(--accent-soft); color:var(--muted);}
+.modebanner{border-radius:10px; padding:10px 14px; font-size:0.85rem; margin-bottom:14px; border-left:4px solid var(--muted);}
+.mode-warn{background:var(--accent-soft); border-left-color:var(--bad); color:var(--text);}
+.mode-mixed{background:var(--accent-soft); border-left-color:var(--warn); color:var(--text);}
+.mode-good{background:var(--accent-soft); border-left-color:var(--good); color:var(--text);}
+.weak-note{font-size:0.82rem; margin-top:10px; color:var(--muted);}
+.weak-note b{color:var(--text);}
+.sources{margin-top:24px; padding-top:16px; border-top:1px solid var(--border); font-size:0.78rem; color:var(--muted);}
+.sources h3{font-size:0.85rem; margin:0 0 8px; color:var(--text);}
+.sources ol{margin:0 0 10px; padding-left:18px;}
+.sources li{margin:4px 0;}
+.sources a{color:var(--accent);}
+.sources .caveat{background:var(--accent-soft); border-radius:8px; padding:10px 12px; margin-top:10px; color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Appointment Mania</h1>
+  <p class="sub">Paste an appointment-setting transcript. Three independent agents with different starting styles (an aggressive closer, a relationship builder, and a data-and-proof seller) each pick their own approach and try to convert this lead every round, learning only from their own results. After each round the winner is decided and explained. Styles only set each agent's starting beliefs; all three face the same odds. Resets for each new transcript. Runs until you hit stop.</p>
+
+  <textarea id="transcript" placeholder="Paste the call transcript here (setter + lead dialogue)..."></textarea>
+
+  <div class="row">
+    <select id="poolSize">
+      <option value="3" selected>Shared rotation: top 3 fits</option>
+      <option value="4">Shared rotation: top 4 fits</option>
+      <option value="5">Shared rotation: top 5 fits</option>
+    </select>
+    <button class="primary" id="startBtn">Start simulating</button>
+    <button class="stop" id="stopBtn" style="display:none;">Stop</button>
+  </div>
+  <div class="hint">Detection is keyword-based, dialogue and outcomes are simulated — no AI calls.</div>
+  <div id="status"></div>
+  <div id="signalBox"></div>
+  <div id="legendBox"></div>
+
+  <div class="histbox">
+    <h2>Log a real outcome</h2>
+    <p class="hint">Shared with your team (org members only). Once an approach has 5+ logged outcomes for a given signal — or 5+ overall — the simulator uses your real numbers for it instead of the estimated formula.</p>
+    <div class="histrow">
+      <select id="histSignal"><option value="">Signal: none / other</option></select>
+      <select id="histApproach"></select>
+      <select id="histOutcome">
+        <option value="Converted">Converted (listing signed)</option>
+        <option value="Needs follow-up">Needs follow-up</option>
+        <option value="Lost">Lost</option>
+      </select>
+      <button id="histAddBtn">Add record</button>
+    </div>
+    <div id="histStatus"></div>
+    <div class="histtable" id="histTable"></div>
+    <div class="row" style="margin-top:10px;">
+      <button id="exportBtn">Export all records as CSV</button>
+    </div>
+    <p class="hint">This data lives inside the artifact only — export periodically to keep a real backup outside it.</p>
+  </div>
+
+  <div class="live">
+    <div id="modeBanner"></div>
+    <h2 style="font-size:1.0rem;margin:0 0 6px;">Head-to-head: who gets the lead</h2>
+    <div class="tally" id="tally"></div>
+    <div class="barwrap" id="barwrap"></div>
+    <div class="simfeed" id="simFeed"></div>
+    <div id="agentPanels"></div>
+    <div class="weak-note" id="weakNote"></div>
+  </div>
+
+  <div class="sources">
+    <h3>What's real data vs. estimated</h3>
+    <p><b>Real, sourced:</b> the 65% baseline for "lead stays engaged / shows" and the 55% baseline for overall appointment-to-listing-signed conversion.</p>
+    <p><b>Estimated, not sourced:</b> the split of that 55% between "objection handling" and "commitment ask," the risk-level adjustment per approach, and the per-objection-signal adjustments. No public dataset breaks conversion down by specific objection type or specific approach used, so these are reasoned estimates, not measured rates.</p>
+    <ol>
+      <li>Top producers convert leads to appointments at 25–30% vs. an industry average of 10–15%. <a href="https://www.jamilacademy.com/blog/listing-appointment-setting-scripts" target="_blank">Jamil Academy, "Listing Appointment Setting Scripts 2026"</a></li>
+      <li>~65% appointment show rate and ~55% kitchen-table (appointment-to-listing) conversion rate. <a href="https://blog.insidesalespredictability.com/how-an-inside-sales-agent-isa-helps-you-sell-55-more-homes-a-year" target="_blank">Inside Sales Predictability, "How an ISA Helps You Sell 55 More Homes A Year"</a></li>
+      <li>Cold-call-to-appointment conversion around 2%. <a href="https://hackingrealestatemarketing.com/real-estate-prospecting-conversion-rates/" target="_blank">Hacking Real Estate Marketing, "Real Estate Prospecting Conversion Rates"</a></li>
+    </ol>
+    <div class="caveat">These are aggregate industry averages, not calibrated to your market, lead source, or team — they're the fallback used until an approach has enough logged team outcomes (see "Log a real outcome" above). Once you have 5+, the simulation switches to your own numbers for that approach and is tagged "data" in the feed instead of "est."</div>
+  </div>
+</div>
+
+<script>
+// ---- Signal library ----
+const SIGNALS = [
+  { key: "price", label: "Price / value pushback", weight: 3,
+    patterns: [/too (high|much|expensive)/i, /overpric/i, /worth (more|less)/i, /comps?\b/i, /zillow (estimate|zestimate)/i, /can'?t afford/i, /lowball/i] },
+  { key: "timing", label: "Not ready / timing", weight: 3,
+    patterns: [/not ready/i, /just looking/i, /thinking about it/i, /next year/i, /not in a rush/i, /no rush/i, /down the road/i, /maybe later/i] },
+  { key: "spouse", label: "Decision-maker not present", weight: 3,
+    patterns: [/talk to my (husband|wife|partner|spouse)/i, /need to (discuss|check) with/i, /my (husband|wife|partner) (isn'?t|is not) here/i] },
+  { key: "loyalty", label: "Already has an agent", weight: 3,
+    patterns: [/already (working|talking) with/i, /my agent/i, /friend (is|who'?s) a (realtor|agent)/i, /family member.*(realtor|agent)/i] },
+  { key: "trust", label: "Trust / skepticism", weight: 2.5,
+    patterns: [/how did you get my (number|info)/i, /another agent (called|already)/i, /scam/i, /spam/i, /who (gave|sold) you my/i, /stop calling/i] },
+  { key: "fsbo", label: "Wants to sell it themselves", weight: 2.5,
+    patterns: [/sell it myself/i, /\bfsbo\b/i, /don'?t need an agent/i, /save (the|on) commission/i, /do it on my own/i] },
+  { key: "coldlead", label: "Low engagement / cold responses", weight: 1.5,
+    patterns: [/just curious/i, /not sure (yet)?/i, /^ok(ay)?\.?$/im, /^sure\.?$/im, /i (don'?t|dunno) know/i] },
+  { key: "schedule", label: "Scheduling friction", weight: 1.5,
+    patterns: [/(too|really|very) busy/i, /no time/i, /can'?t (do|make) this week/i, /crazy (week|schedule)/i] },
+  { key: "handoff", label: "Resists being passed to someone else", weight: 2.5,
+    patterns: [/why (can'?t|not) (i|you) (talk|deal|speak) (to|with) (the|an?) (agent|realtor)/i, /who'?s actually (coming|showing up|going to be there)/i, /someone else/i, /pass(ed|ing)? (me )?(around|off)/i, /(is|are) you the (agent|realtor)\??/i, /wait,? you'?re not the (agent|realtor)/i] },
+];
+
+function detectSignals(text){
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+  const found = [];
+  SIGNALS.forEach(sig => {
+    for (const pat of sig.patterns){
+      const lineHit = lines.find(l => pat.test(l));
+      if (lineHit){
+        found.push({ ...sig, quote: lineHit.replace(/^[A-Za-z ]{1,15}:\s*/, '').trim().slice(0, 110) });
+        break;
+      }
+    }
+  });
+  return found;
+}
+
+// ---- Approach template library ----
+const FAILURE_NOTES = {
+  price: "Price-anchored leads often nod along to comps and data, then quietly stall waiting for a lower number later.",
+  timing: "A 'not ready' lead can keep saying yes to small next steps without ever committing to an actual date.",
+  spouse: "Getting a firm answer tends to stall out waiting on the absent decision-maker to weigh in.",
+  loyalty: "Loyalty to another agent often resurfaces right at the commitment ask, even after an otherwise warm call.",
+  trust: "Skeptical leads can sound convinced mid-conversation and then go cold before the appointment actually happens.",
+  fsbo: "FSBO-leaning leads tend to re-litigate the commission question no matter how the conversation opens.",
+  coldlead: "Low-engagement leads will often agree to everything and still never take action.",
+  schedule: "Scheduling friction usually turns into repeated reschedules rather than a clean no.",
+  handoff: "Handoff resistance can resurface at the actual appointment if the realtor doesn't re-earn the credibility given at handoff."
+};
+
+const APPROACHES = [
+  { name: "Direct & Assumptive Close", suits: ["coldlead"], weak: ["trust","spouse","loyalty"], risk: "High",
+    description: "Skip the warm-up, assume the appointment is happening, ask for a specific time." },
+  { name: "Rapport-First / Consultative", suits: ["coldlead","trust"], weak: ["schedule"], risk: "Low",
+    description: "Slow down, ask open questions about their situation before mentioning any appointment." },
+  { name: "Data & Market Authority", suits: ["price"], weak: ["trust","fsbo"], risk: "Medium",
+    description: "Lead with hard market data and recent comps to establish credibility." },
+  { name: "Urgency / Market Conditions", suits: ["timing"], weak: ["trust","coldlead"], risk: "High",
+    description: "Create time pressure by referencing rate changes, inventory, or buyer demand." },
+  { name: "Low-Pressure / Informational", suits: ["trust","coldlead","schedule"], weak: ["loyalty"], risk: "Low",
+    description: "Offer to send info with zero ask for a meeting, building trust for a later ask." },
+  { name: "Include the Decision-Maker", suits: ["spouse"], weak: ["coldlead"], risk: "Medium",
+    description: "Explicitly invite the absent decision-maker into the next conversation." },
+  { name: "Objection Reframe", suits: ["fsbo","loyalty"], weak: ["timing"], risk: "Medium",
+    description: "Validate the objection, share a relatable story, then reframe why a conversation still helps." },
+  { name: "Credibility Transfer / Handoff", suits: ["handoff","trust"], weak: ["coldlead"], risk: "Low",
+    description: "Be upfront about the setter/realtor split and build the realtor's credibility before asking." },
+  { name: "Third-Party Social Proof", suits: ["trust","fsbo"], weak: ["timing","coldlead"], risk: "Medium",
+    description: "Reference specific recent client results in the same neighborhood." }
+];
+
+function esc(s){
+  return (s||"").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function clamp(n, lo, hi){ return Math.max(lo, Math.min(hi, n)); }
+
+// ---- Beta/Gamma sampling for Thompson sampling bandit ----
+function gaussianRandom(){
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function sampleGamma(shape){
+  if (shape < 1){
+    const u = Math.random();
+    return sampleGamma(shape + 1) * Math.pow(u, 1 / shape);
+  }
+  const d = shape - 1/3;
+  const c = 1 / Math.sqrt(9 * d);
+  while (true){
+    let x, v;
+    do{ x = gaussianRandom(); v = 1 + c * x; } while (v <= 0);
+    v = v * v * v;
+    const u = Math.random();
+    if (u < 1 - 0.0331 * x * x * x * x) return d * v;
+    if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+  }
+}
+function sampleBeta(alpha, beta){
+  const x = sampleGamma(alpha);
+  const y = sampleGamma(beta);
+  return x / (x + y);
+}
+
+function scoreApproach(app, signalMap){
+  let score = 0;
+  app.suits.forEach(k => { if (signalMap[k]) score += signalMap[k].weight; });
+  app.weak.forEach(k => { if (signalMap[k]) score -= signalMap[k].weight * 0.6; });
+  return score;
+}
+
+function roll(p){
+  const r = Math.random();
+  if (r < p) return "good";
+  if (r < p + (1 - p) * 0.55) return "neutral";
+  return "bad";
+}
+
+const STAGE_LABELS = ["Lead stays engaged / shows up", "Objection handling", "Commitment ask (listing signed)"];
+// Baseline probabilities anchored to published industry benchmarks (see Sources section below):
+// Stage 0 anchor: ~65% appointment show/engagement rate
+// Stages 1+2 combined anchor: ~55% kitchen-table (appointment-to-listing-signed) conversion rate
+// The split between stage 1 and 2, and all per-objection/per-approach deltas, are estimated — not sourced.
+const STAGE_BASE = [0.65, 0.75, 0.733];
+
+function stageProb(stageIdx, app, signalMap, carry){
+  const score = scoreApproach(app, signalMap);
+  const riskAdj = app.risk === "Low" ? 0.08 : app.risk === "High" ? -0.10 : 0;
+  // Cap the estimated (unsourced) adjustment so it can't swamp the sourced baseline.
+  const adj = clamp(score * 0.03 + riskAdj, -0.12, 0.12);
+  return clamp(STAGE_BASE[stageIdx] + adj + carry, 0.05, 0.95);
+}
+
+function simulateOne(app, signalMap){
+  const emp = empiricalOutcome(app, signalMap);
+  if (emp){
+    let stages, outcomeClass;
+    if (emp.outcome === "Converted"){ stages = ["good","good","good"]; outcomeClass = "outcome-win"; }
+    else if (emp.outcome === "Needs follow-up"){ stages = ["good","neutral","neutral"]; outcomeClass = "outcome-mid"; }
+    else { const wi = Math.floor(Math.random()*3); stages = ["good","good","good"]; stages[wi] = "bad"; outcomeClass = "outcome-lose"; }
+    let weakIdx = stages.findIndex(s => s === "bad");
+    if (weakIdx === -1 && emp.outcome !== "Converted") weakIdx = 2;
+    return { app, stages, outcome: emp.outcome, outcomeClass, weakIdx, dataDriven: true, n: emp.n };
+  }
+
+  const p0 = stageProb(0, app, signalMap, 0);
+  const a = roll(p0);
+  const carryB = a === "good" ? 0 : a === "bad" ? -0.12 : -0.02;
+  const p1 = stageProb(1, app, signalMap, carryB);
+  const b = roll(p1);
+  const carryC = b === "good" ? 0 : b === "bad" ? -0.14 : -0.02;
+  const p2 = stageProb(2, app, signalMap, carryC);
+  const c = roll(p2);
+
+  // A lead only converts if every stage went well. Any "bad" stage (no-show, unresolved objection,
+  // refused ask) loses it, which is what makes the baseline reproduce the sourced ~65% x ~55% funnel.
+  const stages = [a, b, c];
+  let outcome, outcomeClass;
+  if (stages.includes("bad")){ outcome = "Lost"; outcomeClass = "outcome-lose"; }
+  else if (stages.every(s => s === "good")){ outcome = "Converted"; outcomeClass = "outcome-win"; }
+  else { outcome = "Needs follow-up"; outcomeClass = "outcome-mid"; }
+
+  let weakIdx = stages.indexOf("bad");
+  if (weakIdx === -1 && outcome !== "Converted") weakIdx = stages.indexOf("neutral");
+
+  return { app, stages, outcome, outcomeClass, weakIdx, dataDriven: false };
+}
+
+function stepIcon(s){
+  if (s === "good") return '<span class="step good">✓</span>';
+  if (s === "bad") return '<span class="step bad">✕</span>';
+  return '<span class="step neutral">–</span>';
+}
+
+// ---- Team historical data (db capability) ----
+let dbNS = null;
+let historyRecords = [];
+const MIN_N = 5;
+
+async function initHistory(){
+  const sigSel = document.getElementById("histSignal");
+  SIGNALS.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.key; opt.textContent = s.label;
+    sigSel.appendChild(opt);
+  });
+  const appSel = document.getElementById("histApproach");
+  APPROACHES.forEach(a => {
+    const opt = document.createElement("option");
+    opt.value = a.name; opt.textContent = a.name;
+    appSel.appendChild(opt);
+  });
+
+  try{
+    dbNS = await claude.use("db");
+  }catch(e){ dbNS = null; }
+
+  if (!dbNS){
+    document.getElementById("histStatus").textContent = "Shared data isn't available in this view (sign-in or org access required).";
+    document.getElementById("histAddBtn").disabled = true;
+    return;
+  }
+
+  dbNS.collection("records").onSnapshot(
+    snap => { historyRecords = snap.docs.map(d => ({ ...d.data(), _id: d.id })); renderHistTable(); renderModeBanner(); },
+    err => { document.getElementById("histStatus").textContent = "Couldn't load shared data (" + err.code + ")."; }
+  );
+
+  document.getElementById("histAddBtn").addEventListener("click", async () => {
+    const signal = document.getElementById("histSignal").value || null;
+    const approach = document.getElementById("histApproach").value;
+    const outcome = document.getElementById("histOutcome").value;
+    const status = document.getElementById("histStatus");
+    status.textContent = "Saving...";
+    try{
+      await dbNS.collection("records").add({ signal, approach, outcome, ts: Date.now() });
+      status.textContent = "Saved.";
+    }catch(e){
+      status.textContent = "Couldn't save (" + (e.code || "error") + ").";
+    }
+  });
+}
+
+function renderHistTable(){
+  const el = document.getElementById("histTable");
+  if (!historyRecords.length){ el.innerHTML = '<div class="hint">No records logged yet.</div>'; return; }
+  const byApp = {};
+  historyRecords.forEach(r => {
+    byApp[r.approach] = byApp[r.approach] || { total: 0, wins: 0 };
+    byApp[r.approach].total++;
+    if (r.outcome === "Converted") byApp[r.approach].wins++;
+  });
+  el.innerHTML = Object.entries(byApp).map(([name, d]) => {
+    const pct = Math.round((d.wins / d.total) * 100);
+    const tag = d.total >= MIN_N ? '<span class="datatag">live in sim</span>' : `<span class="esttag">${MIN_N - d.total} more to activate</span>`;
+    return `<div class="histtable-row"><span>${esc(name)} — ${d.total} logged, ${pct}% converted</span>${tag}</div>`;
+  }).join("");
+}
+
+// ---- Export / backup ----
+let downloadsNS = null;
+
+async function initDownloads(){
+  try{ downloadsNS = await claude.use("downloads"); }catch(e){ downloadsNS = null; }
+  const btn = document.getElementById("exportBtn");
+  btn.addEventListener("click", async () => {
+    const status = document.getElementById("histStatus");
+    if (!downloadsNS){ status.textContent = "Export isn't available in this view."; return; }
+    if (!historyRecords.length){ status.textContent = "No records to export yet."; return; }
+    const header = "id,signal,approach,outcome,timestamp\n";
+    const rows = historyRecords.map(r => [
+      r._id, r.signal || "", r.approach, r.outcome, new Date(r.ts).toISOString()
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    status.textContent = "Exporting...";
+    try{
+      await downloadsNS.save({ filename: "appointment-sim-records.csv", data: header + rows });
+      status.textContent = "Exported.";
+    }catch(e){
+      status.textContent = "Export failed (" + (e.code || "error") + ").";
+    }
+  });
+}
+
+function empiricalOutcome(app, signalMap){
+  const dominant = Object.values(signalMap).sort((a,b) => b.weight - a.weight)[0];
+  let pool1 = dominant ? historyRecords.filter(r => r.approach === app.name && r.signal === dominant.key) : [];
+  let n, source;
+  if (pool1.length >= MIN_N){ n = pool1; source = "signal+approach"; }
+  else {
+    const pool2 = historyRecords.filter(r => r.approach === app.name);
+    if (pool2.length >= MIN_N){ n = pool2; source = "approach"; }
+    else return null;
+  }
+  const counts = { "Converted": 0, "Needs follow-up": 0, "Lost": 0 };
+  n.forEach(r => { if (counts[r.outcome] !== undefined) counts[r.outcome]++; });
+  const total = n.length;
+  let r = Math.random() * total;
+  let outcome = "Lost";
+  for (const [k, v] of Object.entries(counts)){
+    r -= v;
+    if (r <= 0){ outcome = k; break; }
+  }
+  return { outcome, n: total, source };
+}
+
+function delay(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+// ---- Continuous run state ----
+let running = false;
+let pool = [];
+let signalMap = {};
+let weakCounts = [0, 0, 0];
+let runCount = 0;
+const MAX_VISIBLE_ROWS = 60;
+
+// ---- Three independent learning agents with different starting styles (each resets per lead) ----
+const AGENTS = [
+  { id: "A", name: "Agent Alpha", style: "Aggressive closer", color: "var(--good)",
+    blurb: "Starts out believing pressure and speed win. Stubborn about it.",
+    favors: ["Direct & Assumptive Close", "Urgency / Market Conditions"],
+    disfavors: ["Rapport-First / Consultative", "Low-Pressure / Informational"],
+    priorStrength: 8 },
+  { id: "B", name: "Agent Beta", style: "Relationship builder", color: "var(--accent)",
+    blurb: "Starts out believing trust comes first. Moderately open to changing its mind.",
+    favors: ["Rapport-First / Consultative", "Low-Pressure / Informational", "Credibility Transfer / Handoff", "Include the Decision-Maker"],
+    disfavors: ["Direct & Assumptive Close", "Urgency / Market Conditions"],
+    priorStrength: 5 },
+  { id: "C", name: "Agent Gamma", style: "Data & proof", color: "var(--warn)",
+    blurb: "Starts out believing credibility and evidence win. Adapts quickly.",
+    favors: ["Data & Market Authority", "Third-Party Social Proof", "Objection Reframe"],
+    disfavors: ["Direct & Assumptive Close"],
+    priorStrength: 3 }
+];
+let brains = {}; // agent.id -> { approach.name -> {alpha, beta, attempts} }
+let score = { A: 0, B: 0, C: 0, None: 0 };
+const STYLE_BOOST = 0.18, STYLE_PENALTY = 0.08;
+let agentPools = {}; // agent.id -> approaches that agent will consider
+
+// Each agent considers the shared rotation PLUS the approaches its own style favors,
+// even if they fit this lead poorly. That's what lets an aggressive closer try pressure on a skeptic and learn from failing.
+function poolFor(agent){
+  const extra = APPROACHES.filter(a => agent.favors.includes(a.name) && !pool.includes(a));
+  return pool.concat(extra);
+}
+function inPlay(){
+  const seen = {}, out = [];
+  Object.values(agentPools).forEach(list => list.forEach(a => { if (!seen[a.name]){ seen[a.name] = true; out.push(a); } }));
+  return out.length ? out : pool;
+}
+function joinNames(arr){
+  return arr.length <= 2 ? arr.join(" and ") : arr.slice(0, -1).join(", ") + " and " + arr[arr.length - 1];
+}
+
+// A starting style only shifts what an agent BELIEVES going in. Real logged team data overrides opinion.
+function priorProb(app, signalMap, agent){
+  const emp = historyRecords.filter(r => r.approach === app.name);
+  if (emp.length >= MIN_N){
+    const wins = emp.filter(r => r.outcome === "Converted").length;
+    return clamp(wins / emp.length, 0.03, 0.97);
+  }
+  let p = stageProb(0, app, signalMap, 0) * stageProb(1, app, signalMap, 0) * stageProb(2, app, signalMap, 0);
+  if (agent.favors.includes(app.name)) p += STYLE_BOOST;
+  else if (agent.disfavors.includes(app.name)) p -= STYLE_PENALTY;
+  return clamp(p, 0.03, 0.97);
+}
+
+function initBrain(agent){
+  const b = {};
+  const list = poolFor(agent);
+  agentPools[agent.id] = list;
+  list.forEach(app => {
+    const p = priorProb(app, signalMap, agent);
+    b[app.name] = { alpha: p * agent.priorStrength, beta: (1 - p) * agent.priorStrength, attempts: 0 };
+  });
+  return b;
+}
+
+function pickThompson(brain, list){
+  let best = null, bestScore = -1;
+  list.forEach(app => {
+    const b = brain[app.name];
+    const s = sampleBeta(b.alpha, b.beta);
+    if (s > bestScore){ bestScore = s; best = app; }
+  });
+  return best;
+}
+
+function updateBrain(brain, app, outcome){
+  const b = brain[app.name];
+  b.attempts++;
+  if (outcome === "Converted") b.alpha += 1;
+  else if (outcome === "Lost") b.beta += 1;
+  else { b.alpha += 0.5; b.beta += 0.5; }
+}
+
+function shortName(agent){ return esc(agent.name.replace("Agent ", "")); }
+
+function decideWinner(entries){
+  const rank = o => o === "Converted" ? 2 : o === "Needs follow-up" ? 1 : 0;
+  const best = Math.max(...entries.map(e => rank(e.res.outcome)));
+  if (best === 0){
+    return { winner: "None", reason: "All three agents struck out this round. Nobody converts the lead right now." };
+  }
+  const describe = e => `${shortName(e.agent)}'s ${esc(e.app.name)} (${esc(e.res.outcome)})`;
+  const contenders = entries.filter(e => rank(e.res.outcome) === best);
+  if (contenders.length === 1){
+    const w = contenders[0];
+    const others = joinNames(entries.filter(e => e !== w).map(describe));
+    return { winner: w.agent.id, reason: `${describe(w)} beat ${others}.` };
+  }
+  const tied = joinNames(contenders.map(e => shortName(e.agent)));
+  const good = e => e.res.stages.filter(s => s === "good").length;
+  const maxGood = Math.max(...contenders.map(good));
+  const cleaner = contenders.filter(e => good(e) === maxGood);
+  if (cleaner.length === 1){
+    const w = cleaner[0];
+    return { winner: w.agent.id, reason: `${tied} both reached ${esc(w.res.outcome)}, but ${describe(w)} landed cleaner stages (${maxGood} good), so it reads as more convincing.` };
+  }
+  const maxMean = Math.max(...cleaner.map(e => e.mean));
+  const strong = cleaner.filter(e => maxMean - e.mean <= 0.03);
+  if (strong.length === 1){
+    const w = strong[0];
+    return { winner: w.agent.id, reason: `Dead heat between ${tied} on outcome and stage quality. ${shortName(w.agent)}'s ${esc(w.app.name)} has the stronger track record so far (${Math.round(w.mean * 100)}%), so it edges the lead.` };
+  }
+  const w = strong[Math.floor(Math.random() * strong.length)];
+  return { winner: w.agent.id, reason: `Essentially even between ${tied} on every measure. Coin-flip close, decided by in-the-moment rapport rather than strategy.` };
+}
+
+function renderModeBanner(){
+  const el = document.getElementById("modeBanner");
+  const list = inPlay();
+  if (!el || !list.length){ if (el) el.innerHTML = ""; return; }
+  const info = list.map(app => ({
+    name: app.name,
+    n: historyRecords.filter(r => r.approach === app.name).length
+  }));
+  const real = info.filter(p => p.n >= MIN_N);
+
+  let html;
+  if (real.length === 0){
+    html = `<div class="modebanner mode-warn">⚠️ Self-play mode: no approach here has 5+ real logged outcomes yet. Every belief and "learning" shown below is agents training against an estimated formula, not real results. Treat it as a structured guess, not evidence about this lead.</div>`;
+  } else if (real.length === list.length){
+    html = `<div class="modebanner mode-good">✓ All ${list.length} approaches in play are running on real logged team data (${real.map(p => `n=${p.n}`).join(", ")}).</div>`;
+  } else {
+    const realList = real.map(p => `${esc(p.name)} (n=${p.n})`).join(", ");
+    const estList = info.filter(p => p.n < MIN_N).map(p => esc(p.name)).join(", ");
+    html = `<div class="modebanner mode-mixed">Mixed: ${real.length} of ${list.length} approaches running on real data: ${realList}. Still estimated: ${estList}.</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderScoreboard(){
+  const el = document.getElementById("tally");
+  const bw = document.getElementById("barwrap");
+  const total = (score.A + score.B + score.C + score.None) || 1;
+  el.innerHTML = AGENTS.map(a => `<div><b>${score[a.id]}</b>${shortName(a)}</div>`).join("") +
+    `<div><b>${score.None}</b>Neither</div><div><b>${runCount}</b>Rounds</div>`;
+  bw.innerHTML = AGENTS.map(a => `<div class="barseg" style="width:${(score[a.id] / total) * 100}%;background:${a.color}"></div>`).join("") +
+    `<div class="barseg seg-lose" style="width:${(score.None / total) * 100}%"></div>`;
+}
+
+function renderBrain(agent){
+  const el = document.getElementById("beliefs-" + agent.id);
+  if (!el) return;
+  const brain = brains[agent.id];
+  const rows = agentPools[agent.id].map(app => {
+    const b = brain[app.name];
+    const mean = b.alpha / (b.alpha + b.beta);
+    const se = Math.sqrt((mean * (1 - mean)) / (b.alpha + b.beta + 1));
+    return { app, mean, se, attempts: b.attempts };
+  }).sort((a, b) => b.mean - a.mean);
+
+  const leaderName = rows[0] ? rows[0].app.name : null;
+
+  el.innerHTML = `<h3 style="font-size:0.9rem;margin:16px 0 2px;"><span style="color:${agent.color}">●</span> ${esc(agent.name)}: ${esc(agent.style)}</h3>` +
+    `<div class="hint" style="margin:0 0 4px;">${esc(agent.blurb)}</div>` +
+    rows.map(r => {
+      const pct = Math.round(r.mean * 100);
+      const lo = Math.round(clamp(r.mean - r.se, 0, 1) * 100);
+      const hi = Math.round(clamp(r.mean + r.se, 0, 1) * 100);
+      const lead = r.app.name === leaderName && r.attempts > 0 ? ' <span class="datatag">currently favoring</span>' : '';
+      return `<div class="approach-row">
+        <div class="lbl"><span>${esc(r.app.name)}${lead}</span><span>${pct}% est. (${lo}–${hi}%) · ${r.attempts} tries</span></div>
+        <div class="miniwrap"><div class="minibar" style="width:${pct}%;background:${agent.color}"></div></div>
+      </div>`;
+    }).join("");
+}
+
+function leaderOf(agent){
+  const brain = brains[agent.id];
+  const rows = agentPools[agent.id].map(app => {
+    const b = brain[app.name];
+    return { app, mean: b.alpha / (b.alpha + b.beta), attempts: b.attempts };
+  }).sort((a, b) => b.mean - a.mean);
+  return rows[0];
+}
+
+function leaderRiskLine(agent, leader){
+  if (!leader || leader.attempts === 0) return "";
+  const overlapKey = leader.app.weak.find(k => signalMap[k]);
+  if (overlapKey){
+    const sig = signalMap[overlapKey];
+    return `<p style="margin:6px 0;"><b>${esc(agent.name)}</b> is leaning on <b>${esc(leader.app.name)}</b>, which has a known structural weak spot here: <b>${esc(sig.label)}</b>. ${esc(FAILURE_NOTES[overlapKey] || "")}</p>`;
+  }
+  return `<p style="margin:6px 0;"><b>${esc(agent.name)}</b> is leaning on <b>${esc(leader.app.name)}</b>, which has no obvious structural mismatch against the detected signals, so its losses are more likely variance than a fixed weakness.</p>`;
+}
+
+function renderFailurePoints(){
+  const el = document.getElementById("weakNote");
+  if (runCount === 0){ el.innerHTML = ""; return; }
+
+  const attempts = runCount * AGENTS.length;
+  const stageLines = STAGE_LABELS.map((label, i) => ({
+    label, count: weakCounts[i], pct: Math.round((weakCounts[i] / attempts) * 100)
+  })).sort((a, b) => b.count - a.count);
+  const topStage = stageLines[0];
+
+  const sortedSignals = Object.values(signalMap).sort((a, b) => b.weight - a.weight).slice(0, 3);
+  const sigLines = sortedSignals.map(s => `<li><b>${esc(s.label)}:</b> ${esc(FAILURE_NOTES[s.key] || "")}</li>`).join("");
+
+  el.innerHTML = `
+    <div class="simsummary" style="margin-top:14px;">
+      <h3 style="margin:0 0 8px;font-size:0.95rem;">Likely failure points for the agents</h3>
+      <p style="margin:0 0 6px;">Most common breakdown stage across all three agents: <b>${esc(topStage.label)}</b> (${topStage.pct}% of ${attempts} attempts).</p>
+      ${AGENTS.map(a => leaderRiskLine(a, leaderOf(a))).join("")}
+      ${sigLines ? `<p style="margin:10px 0 4px;">Objection patterns in this lead that tend to cause failure regardless of approach:</p><ul style="margin:0 0 0 18px;padding:0;font-size:0.85rem;">${sigLines}</ul>` : ""}
+    </div>
+  `;
+}
+
+function dataTag(res){
+  return res.dataDriven ? `<span class="datatag">data n=${res.n}</span>` : `<span class="esttag">est.</span>`;
+}
+
+function duelCol(agent, app, res, isWinner){
+  return `<div class="duelcol ${isWinner ? "win" : ""}" ${isWinner ? `style="border-color:${agent.color}"` : ""}>
+    <span class="aname" style="color:${agent.color}">${shortName(agent)}</span>
+    <span class="appname" style="flex:1;min-width:0;">${esc(app.name)}</span>
+    <span class="path">${res.stages.map(stepIcon).join("")}</span>
+    <span class="outcome-chip ${res.outcomeClass}" style="margin-left:0;">${esc(res.outcome)}</span>
+    ${dataTag(res)}
+  </div>`;
+}
+
+async function loop(){
+  const feed = document.getElementById("simFeed");
+  while (running){
+    // Each agent acts independently: own pick, own outcome, own learning. None sees the others.
+    const entries = AGENTS.map(agent => {
+      const brain = brains[agent.id];
+      const app = pickThompson(brain, agentPools[agent.id]);
+      const res = simulateOne(app, signalMap);
+      const b = brain[app.name];
+      return { agent, app, res, mean: b.alpha / (b.alpha + b.beta) };
+    });
+
+    // Decide the winner BEFORE updating brains so tie-breaks use the beliefs each agent acted on.
+    const verdict = decideWinner(entries);
+
+    entries.forEach(e => {
+      updateBrain(brains[e.agent.id], e.app, e.res.outcome);
+      if (e.res.weakIdx > -1) weakCounts[e.res.weakIdx]++;
+    });
+
+    runCount++;
+    score[verdict.winner]++;
+
+    const winAgent = AGENTS.find(a => a.id === verdict.winner);
+    const winnerLabel = winAgent ? winAgent.name : "No one";
+    const row = document.createElement("div");
+    row.className = "dualrow";
+    row.innerHTML = `
+      <div class="roundno">Round ${runCount}</div>
+      <div class="duelgrid">${entries.map(e => duelCol(e.agent, e.app, e.res, e.agent.id === verdict.winner)).join("")}</div>
+      <div class="reason">🏆 <b>${esc(winnerLabel)}</b>: ${verdict.reason}</div>
+    `;
+    feed.insertBefore(row, feed.firstChild);
+    while (feed.children.length > MAX_VISIBLE_ROWS){
+      feed.removeChild(feed.lastChild);
+    }
+
+    renderScoreboard();
+    renderModeBanner();
+    AGENTS.forEach(a => renderBrain(a));
+    renderFailurePoints();
+
+    await delay(400);
+  }
+}
+
+function startRun(){
+  const transcript = document.getElementById("transcript").value.trim();
+  const status = document.getElementById("status");
+  const signalBox = document.getElementById("signalBox");
+  const legendBox = document.getElementById("legendBox");
+
+  if (!transcript){
+    status.textContent = "Paste a transcript first.";
+    return;
+  }
+  status.textContent = "";
+
+  const detected = detectSignals(transcript);
+  signalMap = {};
+  detected.forEach(s => signalMap[s.key] = s);
+
+  signalBox.innerHTML = detected.length
+    ? '<div class="signals"><b>Detected signals</b>' + detected.map(s => `<span class="chip">${esc(s.label)}</span>`).join('') + '</div>'
+    : '<div class="signals"><b>Detected signals</b><span class="chip">None matched — using a balanced default pool</span></div>';
+
+  const poolSize = parseInt(document.getElementById("poolSize").value, 10);
+  const ranked = APPROACHES.map(a => ({ app: a, score: scoreApproach(a, signalMap) }))
+    .sort((a,b) => b.score - a.score)
+    .map(r => r.app);
+  pool = ranked.slice(0, poolSize);
+
+  legendBox.innerHTML = '<div class="legend"><b>Shared rotation</b> (each agent may also try approaches that fit its own style): ' +
+    pool.map(a => `<span class="chip">${esc(a.name)} · ${esc(a.risk)} risk</span>`).join('') + '</div>';
+
+  // reset run state: every agent starts fresh with its own style-shaped beliefs and no shared memory
+  score = { A: 0, B: 0, C: 0, None: 0 };
+  weakCounts = [0, 0, 0];
+  runCount = 0;
+  brains = {};
+  AGENTS.forEach(a => { brains[a.id] = initBrain(a); });
+  document.getElementById("simFeed").innerHTML = "";
+  document.getElementById("weakNote").innerHTML = "";
+  document.getElementById("agentPanels").innerHTML = AGENTS.map(a => `<div class="approach-stats" id="beliefs-${a.id}"></div>`).join("");
+  renderScoreboard();
+  renderModeBanner();
+  AGENTS.forEach(a => renderBrain(a));
+
+  running = true;
+  document.getElementById("startBtn").style.display = "none";
+  document.getElementById("stopBtn").style.display = "block";
+  loop();
+}
+
+function stopRun(){
+  running = false;
+  document.getElementById("startBtn").style.display = "block";
+  document.getElementById("stopBtn").style.display = "none";
+}
+
+document.getElementById("startBtn").addEventListener("click", startRun);
+document.getElementById("stopBtn").addEventListener("click", stopRun);
+initHistory();
+initDownloads();
+</script>
+</body>
+</html>
